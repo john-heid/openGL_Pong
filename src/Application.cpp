@@ -23,6 +23,10 @@
 #include "ImGUI/imgui_impl_opengl3.h"
 
 
+static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos);
+void cursorEnterCallback(GLFWwindow* window, int entered);
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+
 
 
 int main()
@@ -136,6 +140,14 @@ int main()
         float increment = 0.05f;
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+
+        // User Input
+        glfwSetCursorPosCallback(window, cursorPositionCallback);
+        glfwSetCursorEnterCallback(window, cursorEnterCallback);
+        glfwSetMouseButtonCallback(window, mouseButtonCallback);
+        
+
+
         // render loop
         // -----------
         while (!glfwWindowShouldClose(window))
@@ -198,4 +210,30 @@ int main()
 
     glfwTerminate();
     return 0;
+}
+
+
+static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos) 
+{
+    std::cout << xPos << " : " << yPos << std::endl;
+}
+
+void cursorEnterCallback(GLFWwindow* window, int entered)
+{
+    if (entered) {
+        std::cout << "Entered Window" << std::endl;
+    }
+    else {
+        std::cout << "Left Window" << std::endl;
+    }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+        std::cout << "Right button pressed" << std::endl;
+    }
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+        std::cout << "Right button released" << std::endl;
+    }
 }
