@@ -27,6 +27,28 @@ static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos)
 void cursorEnterCallback(GLFWwindow* window, int entered);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+
+
+bool player_one_up{ false };
+bool player_one_down{ false };
+
+bool player_two_up{ false };
+bool player_two_down{ false };
+
+float player_one_position_y{ 0.0f };
+float player_two_position_y{ 0.0f };
+
+float global_posX{};
+float global_posY{};
+
+float paddle_speed{ 10.0f };
+
+
+
+
+
 
 
 int main()
@@ -88,7 +110,7 @@ int main()
 
     std::cout << glGetString(GL_VERSION) << std::endl;
     {
-        float positions[] = {
+        float p1_positions[] = {
             100.0f, 100.0f, 0.0f, 0.0f, // 0
             200.0f, 100.0f, 1.0f, 0.0f, // 1
             200.0f, 200.0f, 1.0f, 1.0f, // 2
@@ -104,7 +126,7 @@ int main()
         GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         
         VertexArray va;
-        VertexBuffer vb(positions, 4 * 4 * sizeof(float));
+        VertexBuffer vb(p1_positions, 4 * 4 * sizeof(float));
 
         VertexBufferLayout layout;
         layout.Push<float>(2);
@@ -136,15 +158,17 @@ int main()
 
         Renderer renderer{};
 
-        float r = 0.0f;
-        float increment = 0.05f;
-        //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 
 
         // User Input
         glfwSetCursorPosCallback(window, cursorPositionCallback);
         glfwSetCursorEnterCallback(window, cursorEnterCallback);
         glfwSetMouseButtonCallback(window, mouseButtonCallback);
+        glfwSetKeyCallback(window, keyCallback);
+
+
+
         
 
 
@@ -163,20 +187,21 @@ int main()
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            // 1. Reset to identity every frame so movement doesn't accumulate exponentially
+            glm::mat4 currentModel = glm::mat4(1.0f);
+
+            // 2. Translate from the origin using your base position + dynamic input offsets
+            currentModel = glm::translate(currentModel, glm::vec3(200.0f, 200.0f + player_one_position_y, 0.0f));
+
+            // 3. Update the MVP using the fresh model matrix
+            mvp = proj * view * currentModel;
 
             shader.Bind();
-            shader.SetUniform4f("u_Color", r, 0.3f, 0.8f, 1.0f);
+            shader.SetUniform4f("u_Color", 1.0f, 0.3f, 0.8f, 1.0f);
+            shader.SetUniformMat4f("u_MVP", mvp);
 
             renderer.Draw(va, ib, shader);
-            GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
 
-
-            if (r > 1.0f)
-                increment = -0.05f;
-            else if (r < 0.0f)
-                increment = 0.05f;
-
-            r += increment;
 
             {
                 static float f = 0.0f;
@@ -194,6 +219,21 @@ int main()
             // -------------------------------------------------------------------------------
             glfwSwapBuffers(window);
             // Poll for and process events
+
+
+            if (player_one_up && player_one_down) {
+                ;
+            }
+            else {
+                if (player_one_up) {
+                    player_one_position_y += paddle_speed;
+                }
+                if (player_one_down) {
+                    player_one_position_y -= paddle_speed;
+                }
+            }
+
+
             glfwPollEvents();
         }
 
@@ -215,7 +255,9 @@ int main()
 
 static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos) 
 {
-    std::cout << xPos << " : " << yPos << std::endl;
+    //std::cout << xPos << " : " << yPos << std::endl;
+    global_posX = xPos;
+    global_posY = -1 * yPos;
 }
 
 void cursorEnterCallback(GLFWwindow* window, int entered)
@@ -235,5 +277,38 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     }
     if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
         std::cout << "Right button released" << std::endl;
+    }
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    // Player 1
+    if (key == 87 && action == GLFW_PRESS) {
+        player_one_up = true;
+    }
+    else if (key == 87 && action == GLFW_RELEASE) {
+        player_one_up = false;
+    }
+    if (key == 83 && action == GLFW_PRESS) {
+        player_one_down = true;
+    }
+    else if (key == 83 && action == GLFW_RELEASE) {
+        player_one_down = false;
+    }
+
+
+
+    // Player 2
+    if (key == 87 && action == GLFW_PRESS) {
+        player_two_up = true;
+    }
+    else if (key == 87 && action == GLFW_RELEASE) {
+        player_two_up = false;
+    }
+    if (key == 83 && action == GLFW_PRESS) {
+        player_two_down = true;
+    }
+    else if (key == 83 && action == GLFW_RELEASE) {
+        player_two_down = false;
     }
 }
