@@ -607,6 +607,8 @@
   <ItemGroup>
     <Image Include="res\textures\pong_ball.png" />
     <Image Include="res\textures\redcar_icon.png" />
+    <Image Include="res\textures\score_one.png" />
+    <Image Include="res\textures\score_three.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
