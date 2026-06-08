@@ -34,6 +34,14 @@ void point_scored(int& player);
 void check_winner(int player1, int player2);
 
 
+constexpr float resolution_x{ 960 };
+constexpr float resolution_y{ 540 };
+constexpr float center_x{ resolution_x / 2 };
+constexpr float center_y{ resolution_y / 2 };
+constexpr float scoreboard_offset_x{ 60.0f };
+//constexpr glm::vec3 ball_spawn_location = glm::vec3( center_x, center_y, 0.0f);
+
+
 bool player_one_up{ false };
 bool player_one_down{ false };
 
@@ -46,15 +54,15 @@ float p1_y{ 200.0f };
 float p2_x{ 940.0f };
 float p2_y{ 200.0f };
 
-float global_posX{};
-float global_posY{};
+double global_posX{};
+double global_posY{};
 
 float paddle_w = 20.0f;
 float paddle_h = 38.0f;
 float paddle_speed{ 5.0f };
 
-float ball_x = 475.0f;
-float ball_y = 265.0f;
+float ball_x = center_x;
+float ball_y = center_y;
 float ball_size = 10.0f;
 float ball_vel_x = 2.0f;
 float ball_vel_y = 2.0f;
@@ -68,13 +76,15 @@ int p2_score{ 0 };
 
 
 
+
+
 int main()
 {
     // glfw: initialize and configure
     // ------------------------------
     // Create window with graphics context
-    float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
-    GLFWwindow* window = glfwCreateWindow((int)(1280 * main_scale), (int)(800 * main_scale), "Dear ImGui GLFW+OpenGL3 example", nullptr, nullptr);
+    //float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
+    //GLFWwindow* window = glfwCreateWindow((int)(1280 * main_scale), (int)(800 * main_scale), "Dear ImGui GLFW+OpenGL3 example", nullptr, nullptr);
     if (!glfwInit())
         return -1;
 
@@ -91,7 +101,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    window = glfwCreateWindow(960, 540, "Hello World", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(static_cast<int>(resolution_x), static_cast<int>(resolution_y), "Pong", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -190,8 +200,12 @@ int main()
 
         Shader shader("res/shaders/Basic.shader");
         shader.Bind();
-        shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.8f, 1.0f);
         shader.SetUniformMat4f("u_MVP", mvp);
+        Shader color_shader("res/shaders/Color.Shader");
+        color_shader.Bind();
+        color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+        color_shader.SetUniformMat4f("u_MVP", mvp);
+        
 
         Texture paddle_texture("res/textures/redcar_icon.png");
         Texture ball_texture("res/textures/pong_ball.png");
@@ -199,8 +213,11 @@ int main()
         Texture score_one("res/textures/score_one.png");
         Texture score_two("res/textures/score_two.png");
         Texture score_three("res/textures/score_three.png");
-        std::cout << "score_zero width: " << score_zero.GetWidth() << std::endl;
+        
+        const float score_half_width = score_zero.GetWidth() / 2.0f;
 
+        glm::vec3 scoreboard_location_p1{ center_x - scoreboard_offset_x - score_half_width, center_y, 0.0f };
+        glm::vec3 scoreboard_location_p2{ center_x + scoreboard_offset_x - score_half_width, center_y, 0.0f };
 
 
         std::array<Texture*, 4> score_textures = { &score_zero, &score_one, &score_two, &score_three };
@@ -258,12 +275,10 @@ int main()
             // Player 1 Collision
             if (AABB(ball_x, ball_y, ball_size, ball_size, p1_x, p1_y, paddle_w, paddle_h)) {
                 ball_vel_x *= -1.0f;
-                std::cout << "Collision!!!!!Player 1";
             }
             // Player 2 Collision
             if (AABB(ball_x, ball_y, ball_size, ball_size, p2_x, p2_y, paddle_w, paddle_h)) {
                 ball_vel_x *= -1.0f;
-                std::cout << "Collision!!!!Player 2";
             }
 
 
@@ -282,6 +297,7 @@ int main()
             player1_model = glm::translate(player1_model, glm::vec3(0.0f, p1_y, 0.0f));
             glm::mat4 mvp1 = proj * view * player1_model;
             paddle_texture.Bind();
+            shader.Bind();
             shader.SetUniform1i("u_Texture", 0);
             shader.SetUniformMat4f("u_MVP", mvp1);
             renderer.Draw(va, ib, shader);
@@ -291,6 +307,7 @@ int main()
             player2_model = glm::translate(player2_model, glm::vec3(p2_x, p2_y, 0.0f));
             glm::mat4 mvp2 = proj * view * player2_model;
             paddle_texture.Bind();
+            shader.Bind();
             shader.SetUniform1i("u_Texture", 0);
             shader.SetUniformMat4f("u_MVP", mvp2);
             renderer.Draw(va, ib, shader);
@@ -300,31 +317,31 @@ int main()
             ball_model = glm::translate(ball_model, glm::vec3(ball_x, ball_y, 0.0f));
             glm::mat4 ballmvp = proj * view * ball_model;
             ball_texture.Bind();
-            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
-
             shader.SetUniform1i("u_Texture", 0);
             shader.SetUniformMat4f("u_MVP", ballmvp);
             renderer.Draw(ball_va, ib, shader);
 
             // Scoreboard - Player 1
             glm::mat4 score_player1_model = glm::mat4(1.0f);
-            score_player1_model = glm::translate(score_player1_model, glm::vec3(380.0f, 300.0f, 0.0f));
+            score_player1_model = glm::translate(score_player1_model, scoreboard_location_p1);
             glm::mat4 score_player1_mvp = proj * view * score_player1_model;
             score_textures[p1_score]->Bind();
-            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
-            shader.SetUniform1i("u_Texture", 0);
-            shader.SetUniformMat4f("u_MVP", score_player1_mvp);
-            renderer.Draw(scoreboard_va, ib, shader);
+            color_shader.Bind();
+            color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+            color_shader.SetUniform1i("u_Texture", 0);
+            color_shader.SetUniformMat4f("u_MVP", score_player1_mvp);
+            renderer.Draw(scoreboard_va, ib, color_shader);
 
             // Scoreboard - Player 2
             glm::mat4 score_player2_model = glm::mat4(1.0f);
-            score_player2_model = glm::translate(score_player2_model, glm::vec3(440.0f, 300.0f, 0.0f));
+            score_player2_model = glm::translate(score_player2_model, scoreboard_location_p2);
             glm::mat4 score_player2_mvp = proj * view * score_player2_model;
             score_textures[p2_score]->Bind();
-            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
-            shader.SetUniform1i("u_Texture", 0);
-            shader.SetUniformMat4f("u_MVP", score_player2_mvp);
-            renderer.Draw(scoreboard_va, ib, shader);
+            color_shader.Bind();
+            color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+            color_shader.SetUniform1i("u_Texture", 0);
+            color_shader.SetUniformMat4f("u_MVP", score_player2_mvp);
+            renderer.Draw(scoreboard_va, ib, color_shader);
 
 
 

@@ -492,6 +492,7 @@
     <None Include="src\vendor\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="res\shaders\Color.shader" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Renderer.h">
@@ -1421,6 +1422,12 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="res\textures\pong_ball.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\textures\score_one.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\textures\score_three.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
