@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <array>
 
 #include "Renderer.h"
 
@@ -29,7 +30,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh);
-
+void point_scored(int& player);
+void check_winner(int player1, int player2);
 
 
 bool player_one_up{ false };
@@ -56,6 +58,9 @@ float ball_y = 265.0f;
 float ball_size = 10.0f;
 float ball_vel_x = 2.0f;
 float ball_vel_y = 2.0f;
+
+int p1_score{ 0 };
+int p2_score{ 0 };
 
 
 
@@ -135,6 +140,13 @@ int main()
             0.0f,   10.0f,  0.0f, 1.0f,
         };
 
+        float scoreboard_positions[] = {
+            0.0f,   0.0f,   0.0f,   0.0f,
+            48.0f,  0.0f,   1.0f,   0.0f,
+            48.0f,  80.0f,  1.0f,   1.0f,
+            0.0f,   80.0f,  0.0f,   1.0f,
+        };
+
         unsigned int indices[] = {
             0, 1, 2,
             2, 3, 0,
@@ -159,6 +171,14 @@ int main()
         ball_layout.Push<float>(2);
         ball_va.AddBuffer(ball_vb, ball_layout);
 
+        // Scoreboard Setup
+        VertexArray scoreboard_va;
+        VertexBuffer scoreboard_vb(scoreboard_positions, 4 * 4 * sizeof(float));
+        VertexBufferLayout scoreboard_layout;
+        scoreboard_layout.Push<float>(2);
+        scoreboard_layout.Push<float>(2);
+        scoreboard_va.AddBuffer(scoreboard_vb, scoreboard_layout);
+
         IndexBuffer ib(indices, 6);
 
         glm::mat4 proj = glm::ortho(0.0f, 960.0f, 0.0f, 540.0f, -1.0f, 1.0f);
@@ -170,11 +190,20 @@ int main()
 
         Shader shader("res/shaders/Basic.shader");
         shader.Bind();
-        shader.SetUniform4f("u_Color", 0.8f, 0.3f, 0.8f, 1.0f);
+        shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.8f, 1.0f);
         shader.SetUniformMat4f("u_MVP", mvp);
 
         Texture paddle_texture("res/textures/redcar_icon.png");
         Texture ball_texture("res/textures/pong_ball.png");
+        Texture score_zero("res/textures/score_zero.png");
+        Texture score_one("res/textures/score_one.png");
+        Texture score_two("res/textures/score_two.png");
+        Texture score_three("res/textures/score_three.png");
+        std::cout << "score_zero width: " << score_zero.GetWidth() << std::endl;
+
+
+
+        std::array<Texture*, 4> score_textures = { &score_zero, &score_one, &score_two, &score_three };
 
 
         va.Unbind();
@@ -212,8 +241,16 @@ int main()
                 ball_vel_y *= -1.0f;
             }
 
-            // Horizontal Bounds / Reset
-            if (ball_x <= 0.0f || ball_x >= 960.0f - 10.0f) {
+            // Horizontal Bounds / Reset / Score
+            if (ball_x >= 960.0f - 10.0f) {
+                point_scored(p1_score);
+                check_winner(p1_score, p2_score);
+                ball_x = 475.0f;
+                ball_y = 265.0f;
+            }
+            if (ball_x <= 0.0f) {
+                point_scored(p2_score);
+                check_winner(p1_score, p2_score);
                 ball_x = 475.0f;
                 ball_y = 265.0f;
             }
@@ -241,31 +278,56 @@ int main()
             ImGui::NewFrame();*/
 
             // Player 1
-            glm::mat4 currentModel = glm::mat4(1.0f);
-            currentModel = glm::translate(currentModel, glm::vec3(0.0f, p1_y, 0.0f));
-            mvp = proj * view * currentModel;
+            glm::mat4 player1_model = glm::mat4(1.0f);
+            player1_model = glm::translate(player1_model, glm::vec3(0.0f, p1_y, 0.0f));
+            glm::mat4 mvp1 = proj * view * player1_model;
             paddle_texture.Bind();
             shader.SetUniform1i("u_Texture", 0);
-            shader.SetUniformMat4f("u_MVP", mvp);
+            shader.SetUniformMat4f("u_MVP", mvp1);
             renderer.Draw(va, ib, shader);
 
             // Player 2
-            glm::mat4 model2 = glm::mat4(1.0f);
-            model2 = glm::translate(model2, glm::vec3(p2_x, p2_y, 0.0f));
-            glm::mat4 mvp2 = proj * view * model2;
+            glm::mat4 player2_model = glm::mat4(1.0f);
+            player2_model = glm::translate(player2_model, glm::vec3(p2_x, p2_y, 0.0f));
+            glm::mat4 mvp2 = proj * view * player2_model;
             paddle_texture.Bind();
             shader.SetUniform1i("u_Texture", 0);
             shader.SetUniformMat4f("u_MVP", mvp2);
             renderer.Draw(va, ib, shader);
             
             // Ball
-            glm::mat4 ballModel = glm::mat4(1.0f);
-            ballModel = glm::translate(ballModel, glm::vec3(ball_x, ball_y, 0.0f));
-            glm::mat4 ballmvp = proj * view * ballModel;
+            glm::mat4 ball_model = glm::mat4(1.0f);
+            ball_model = glm::translate(ball_model, glm::vec3(ball_x, ball_y, 0.0f));
+            glm::mat4 ballmvp = proj * view * ball_model;
             ball_texture.Bind();
+            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+
             shader.SetUniform1i("u_Texture", 0);
             shader.SetUniformMat4f("u_MVP", ballmvp);
             renderer.Draw(ball_va, ib, shader);
+
+            // Scoreboard - Player 1
+            glm::mat4 score_player1_model = glm::mat4(1.0f);
+            score_player1_model = glm::translate(score_player1_model, glm::vec3(380.0f, 300.0f, 0.0f));
+            glm::mat4 score_player1_mvp = proj * view * score_player1_model;
+            score_textures[p1_score]->Bind();
+            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", score_player1_mvp);
+            renderer.Draw(scoreboard_va, ib, shader);
+
+            // Scoreboard - Player 2
+            glm::mat4 score_player2_model = glm::mat4(1.0f);
+            score_player2_model = glm::translate(score_player2_model, glm::vec3(440.0f, 300.0f, 0.0f));
+            glm::mat4 score_player2_mvp = proj * view * score_player2_model;
+            score_textures[p2_score]->Bind();
+            shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", score_player2_mvp);
+            renderer.Draw(scoreboard_va, ib, shader);
+
+
+
 
 
             //{
@@ -394,4 +456,17 @@ bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, 
         ax + aw > bx &&
         ay < by + bh &&
         ay + ah > by;
+}
+
+void point_scored(int& player) {
+    player += 1;
+}
+
+void check_winner(int player1, int player2) {
+    if (player1 >= 3) {
+        std::cout << "Player 1 wins";
+    }
+    if (player2 >= 3) {
+        std::cout << "Player 2 wins";
+    }
 }
