@@ -1420,5 +1420,8 @@
     <Image Include="res\textures\redcar_icon.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\textures\pong_ball.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

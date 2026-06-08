@@ -26,8 +26,9 @@
 static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos);
 void cursorEnterCallback(GLFWwindow* window, int entered);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh);
 
 
 
@@ -37,13 +38,24 @@ bool player_one_down{ false };
 bool player_two_up{ false };
 bool player_two_down{ false };
 
-float player_one_position_y{ 0.0f };
-float player_two_position_y{ 0.0f };
+float p1_x{ 0.0f };
+float p1_y{ 200.0f };
+
+float p2_x{ 940.0f };
+float p2_y{ 200.0f };
 
 float global_posX{};
 float global_posY{};
 
-float paddle_speed{ 10.0f };
+float paddle_w = 20.0f;
+float paddle_h = 38.0f;
+float paddle_speed{ 5.0f };
+
+float ball_x = 475.0f;
+float ball_y = 265.0f;
+float ball_size = 10.0f;
+float ball_vel_x = 2.0f;
+float ball_vel_y = 2.0f;
 
 
 
@@ -111,10 +123,16 @@ int main()
     std::cout << glGetString(GL_VERSION) << std::endl;
     {
         float p1_positions[] = {
-            100.0f, 100.0f, 0.0f, 0.0f, // 0
-            200.0f, 100.0f, 1.0f, 0.0f, // 1
-            200.0f, 200.0f, 1.0f, 1.0f, // 2
-            100.0f, 200.0f, 0.0f, 1.0f, // 3
+            0.0f,   0.0f, 0.0f, 0.0f, // 0
+            20.0f,  0.0f, 1.0f, 0.0f, // 1
+            20.0f, 38.0f, 1.0f, 1.0f, // 2
+            0.0f,  38.0f, 0.0f, 1.0f, // 3
+        };
+        float ball_positions[] = {
+            0.0f,   0.0f,   0.0f, 0.0f,
+            10.0f,  0.0f,   1.0f, 0.0f,
+            10.0f,  10.0f,  1.0f, 1.0f,
+            0.0f,   10.0f,  0.0f, 1.0f,
         };
 
         unsigned int indices[] = {
@@ -125,19 +143,27 @@ int main()
         GLCall(glEnable(GL_BLEND));
         GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         
+        // Paddle Setup
         VertexArray va;
         VertexBuffer vb(p1_positions, 4 * 4 * sizeof(float));
-
         VertexBufferLayout layout;
         layout.Push<float>(2);
         layout.Push<float>(2);
         va.AddBuffer(vb, layout);
 
+        // Ball Setup
+        VertexArray ball_va;
+        VertexBuffer ball_vb(ball_positions, 4 * 4 * sizeof(float));
+        VertexBufferLayout ball_layout;
+        ball_layout.Push<float>(2);
+        ball_layout.Push<float>(2);
+        ball_va.AddBuffer(ball_vb, ball_layout);
+
         IndexBuffer ib(indices, 6);
 
         glm::mat4 proj = glm::ortho(0.0f, 960.0f, 0.0f, 540.0f, -1.0f, 1.0f);
-        glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(-100, 0, 0));
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(200, 200, 0));
+        glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
 
         // multiplication order matters. Massive headache when switched to model * view * proj to match MVP. Do not do that.
         glm::mat4 mvp = proj * view * model;
@@ -147,9 +173,9 @@ int main()
         shader.SetUniform4f("u_Color", 0.8f, 0.3f, 0.8f, 1.0f);
         shader.SetUniformMat4f("u_MVP", mvp);
 
-        Texture texture("res/textures/ChernoLogo.png");
-        texture.Bind();
-        shader.SetUniform1i("u_Texture", 0);
+        Texture paddle_texture("res/textures/redcar_icon.png");
+        Texture ball_texture("res/textures/pong_ball.png");
+
 
         va.Unbind();
         vb.Unbind();
@@ -178,41 +204,80 @@ int main()
         {
             // input
             // -----
+            ball_x += ball_vel_x;
+            ball_y += ball_vel_y;
+
+            // Ceiling Bounds
+            if (ball_y <= 0.0f || ball_y >= 540.0f - 10.0f) {
+                ball_vel_y *= -1.0f;
+            }
+
+            // Horizontal Bounds / Reset
+            if (ball_x <= 0.0f || ball_x >= 960.0f - 10.0f) {
+                ball_x = 475.0f;
+                ball_y = 265.0f;
+            }
+
+            // Player 1 Collision
+            if (AABB(ball_x, ball_y, ball_size, ball_size, p1_x, p1_y, paddle_w, paddle_h)) {
+                ball_vel_x *= -1.0f;
+                std::cout << "Collision!!!!!Player 1";
+            }
+            // Player 2 Collision
+            if (AABB(ball_x, ball_y, ball_size, ball_size, p2_x, p2_y, paddle_w, paddle_h)) {
+                ball_vel_x *= -1.0f;
+                std::cout << "Collision!!!!Player 2";
+            }
+
+
 
             // render
             // ------
             renderer.Clear();
-
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-            // 1. Reset to identity every frame so movement doesn't accumulate exponentially
-            glm::mat4 currentModel = glm::mat4(1.0f);
-
-            // 2. Translate from the origin using your base position + dynamic input offsets
-            currentModel = glm::translate(currentModel, glm::vec3(200.0f, 200.0f + player_one_position_y, 0.0f));
-
-            // 3. Update the MVP using the fresh model matrix
-            mvp = proj * view * currentModel;
-
             shader.Bind();
-            shader.SetUniform4f("u_Color", 1.0f, 0.3f, 0.8f, 1.0f);
-            shader.SetUniformMat4f("u_MVP", mvp);
 
+            /*ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();*/
+
+            // Player 1
+            glm::mat4 currentModel = glm::mat4(1.0f);
+            currentModel = glm::translate(currentModel, glm::vec3(0.0f, p1_y, 0.0f));
+            mvp = proj * view * currentModel;
+            paddle_texture.Bind();
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", mvp);
             renderer.Draw(va, ib, shader);
 
+            // Player 2
+            glm::mat4 model2 = glm::mat4(1.0f);
+            model2 = glm::translate(model2, glm::vec3(p2_x, p2_y, 0.0f));
+            glm::mat4 mvp2 = proj * view * model2;
+            paddle_texture.Bind();
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", mvp2);
+            renderer.Draw(va, ib, shader);
+            
+            // Ball
+            glm::mat4 ballModel = glm::mat4(1.0f);
+            ballModel = glm::translate(ballModel, glm::vec3(ball_x, ball_y, 0.0f));
+            glm::mat4 ballmvp = proj * view * ballModel;
+            ball_texture.Bind();
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", ballmvp);
+            renderer.Draw(ball_va, ib, shader);
 
-            {
-                static float f = 0.0f;
-                ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 
-                ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            }
+            //{
+            //    static float f = 0.0f;
+            //    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+
+            //    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            //}
 
 
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            //ImGui::Render();
+            //ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -226,10 +291,21 @@ int main()
             }
             else {
                 if (player_one_up) {
-                    player_one_position_y += paddle_speed;
+                    p1_y += paddle_speed;
                 }
                 if (player_one_down) {
-                    player_one_position_y -= paddle_speed;
+                    p1_y -= paddle_speed;
+                }
+            }
+            if (player_two_up && player_two_down) {
+                ;
+            }
+            else {
+                if (player_two_up) {
+                    p2_y += paddle_speed;
+                }
+                if (player_two_down) {
+                    p2_y -= paddle_speed;
                 }
             }
 
@@ -242,9 +318,9 @@ int main()
     }
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    //ImGui_ImplOpenGL3_Shutdown();
+    //ImGui_ImplGlfw_Shutdown();
+    //ImGui::DestroyContext();
 
     glfwDestroyWindow(window);
 
@@ -262,22 +338,22 @@ static void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos)
 
 void cursorEnterCallback(GLFWwindow* window, int entered)
 {
-    if (entered) {
+    /*if (entered) {
         std::cout << "Entered Window" << std::endl;
     }
     else {
         std::cout << "Left Window" << std::endl;
-    }
+    }*/
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-        std::cout << "Right button pressed" << std::endl;
-    }
-    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-        std::cout << "Right button released" << std::endl;
-    }
+    //if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+    //    std::cout << "Right button pressed" << std::endl;
+    //}
+    //if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+    //    std::cout << "Right button released" << std::endl;
+    //}
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -299,16 +375,23 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 
     // Player 2
-    if (key == 87 && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS) {
         player_two_up = true;
     }
-    else if (key == 87 && action == GLFW_RELEASE) {
+    else if (key == GLFW_KEY_UP && action == GLFW_RELEASE) {
         player_two_up = false;
     }
-    if (key == 83 && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) {
         player_two_down = true;
     }
-    else if (key == 83 && action == GLFW_RELEASE) {
+    else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE) {
         player_two_down = false;
     }
+}
+
+bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh) {
+    return ax < bx + bw &&
+        ax + aw > bx &&
+        ay < by + bh &&
+        ay + ah > by;
 }
