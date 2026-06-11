@@ -36,6 +36,8 @@ void check_winner(int& player1, int& player2);
 
 //constexpr float resolution_x{ 960.0f };
 //constexpr float resolution_y{ 540.0f };
+//constexpr float resolution_x{ 1280.0f };
+//constexpr float resolution_y{ 720.0f };
 constexpr float resolution_x{ 1920.0f };
 constexpr float resolution_y{ 1080.0f };
 constexpr float center_x{ resolution_x / 2 };
@@ -104,7 +106,12 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(static_cast<int>(resolution_x), static_cast<int>(resolution_y), "Pong", NULL, NULL);
+
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    
+    //GLFWwindow* window = glfwCreateWindow(static_cast<int>(resolution_x), static_cast<int>(resolution_y), "Pong", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Pong", monitor, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -140,6 +147,12 @@ int main()
 
     std::cout << glGetString(GL_VERSION) << std::endl;
     {
+        float background_positions[] {
+            0.0f,       0.0f,       0.0f,   0.0f,
+            1920.0f,    0.0f,       1.0f,   0.0f,
+            1920.0f,    1080.0f,    1.0f,   1.0f,
+            0.0f,       1080.0f,    0.0f,   1.0f,
+        };
         float p1_positions[] = {
             0.0f,   0.0f, 0.0f, 0.0f, // 0
             20.0f,  0.0f, 1.0f, 0.0f, // 1
@@ -168,6 +181,14 @@ int main()
         GLCall(glEnable(GL_BLEND));
         GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         
+        // Background Setup
+        VertexArray va_background;
+        VertexBuffer vb_background(background_positions, 4 * 4 * sizeof(float));
+        VertexBufferLayout layout_background;
+        layout_background.Push<float>(2);
+        layout_background.Push<float>(2);
+        va_background.AddBuffer(vb_background, layout_background);
+
         // Paddle Setup
         VertexArray va;
         VertexBuffer vb(p1_positions, 4 * 4 * sizeof(float));
@@ -296,6 +317,16 @@ int main()
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();*/
 
+            // Background
+            glm::mat4 background_model = glm::mat4(1.0f);
+            background_model = glm::translate(background_model, glm::vec3(0.0f, 0.0f, 0.0f));
+            glm::mat4 mvpBackground = proj * view * background_model;
+            background_texture.Bind();
+            shader.Bind();
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", mvpBackground);
+            renderer.Draw(va_background, ib, shader);
+
             // Player 1
             glm::mat4 player1_model = glm::mat4(1.0f);
             player1_model = glm::translate(player1_model, glm::vec3(p1_x, p1_y, 0.0f));
@@ -316,14 +347,6 @@ int main()
             shader.SetUniformMat4f("u_MVP", mvp2);
             renderer.Draw(va, ib, shader);
             
-            // Ball
-            glm::mat4 ball_model = glm::mat4(1.0f);
-            ball_model = glm::translate(ball_model, glm::vec3(ball_x, ball_y, 0.0f));
-            glm::mat4 ballmvp = proj * view * ball_model;
-            ball_texture.Bind();
-            shader.SetUniform1i("u_Texture", 0);
-            shader.SetUniformMat4f("u_MVP", ballmvp);
-            renderer.Draw(ball_va, ib, shader);
 
             // Scoreboard - Player 1
             glm::mat4 score_player1_model = glm::mat4(1.0f);
@@ -347,7 +370,15 @@ int main()
             color_shader.SetUniformMat4f("u_MVP", score_player2_mvp);
             renderer.Draw(scoreboard_va, ib, color_shader);
 
-
+            // Ball
+            glm::mat4 ball_model = glm::mat4(1.0f);
+            ball_model = glm::translate(ball_model, glm::vec3(ball_x, ball_y, 0.0f));
+            glm::mat4 ballmvp = proj * view * ball_model;
+            ball_texture.Bind();
+            shader.Bind();
+            shader.SetUniform1i("u_Texture", 0);
+            shader.SetUniformMat4f("u_MVP", ballmvp);
+            renderer.Draw(ball_va, ib, shader);
 
 
 

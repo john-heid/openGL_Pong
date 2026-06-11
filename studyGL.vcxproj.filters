@@ -1430,5 +1430,8 @@
     <Image Include="res\textures\score_three.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\textures\background.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
