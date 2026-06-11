@@ -31,11 +31,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh);
 void point_scored(int& player);
-void check_winner(int player1, int player2);
+void check_winner(int& player1, int& player2);
 
 
-constexpr float resolution_x{ 960 };
-constexpr float resolution_y{ 540 };
+//constexpr float resolution_x{ 960.0f };
+//constexpr float resolution_y{ 540.0f };
+constexpr float resolution_x{ 1920.0f };
+constexpr float resolution_y{ 1080.0f };
 constexpr float center_x{ resolution_x / 2 };
 constexpr float center_y{ resolution_y / 2 };
 constexpr float scoreboard_offset_x{ 60.0f };
@@ -51,7 +53,8 @@ bool player_two_down{ false };
 float p1_x{ 0.0f };
 float p1_y{ 200.0f };
 
-float p2_x{ 940.0f };
+// 20.0f is the width of the paddle texture. hardcoded because I dont want to move this out of globals at the moment and i dont want to solve it with pointers.
+float p2_x{ resolution_x - 20.0f};
 float p2_y{ 200.0f };
 
 double global_posX{};
@@ -191,7 +194,7 @@ int main()
 
         IndexBuffer ib(indices, 6);
 
-        glm::mat4 proj = glm::ortho(0.0f, 960.0f, 0.0f, 540.0f, -1.0f, 1.0f);
+        glm::mat4 proj = glm::ortho(0.0f, resolution_x, 0.0f, resolution_y, -1.0f, 1.0f);
         glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
 
@@ -206,7 +209,7 @@ int main()
         color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
         color_shader.SetUniformMat4f("u_MVP", mvp);
         
-
+        Texture background_texture("res/textures/background.png");
         Texture paddle_texture("res/textures/redcar_icon.png");
         Texture ball_texture("res/textures/pong_ball.png");
         Texture score_zero("res/textures/score_zero.png");
@@ -254,22 +257,23 @@ int main()
             ball_y += ball_vel_y;
 
             // Ceiling Bounds
-            if (ball_y <= 0.0f || ball_y >= 540.0f - 10.0f) {
+            if (ball_y <= 0.0f || ball_y >= resolution_y - 10.0f) {
                 ball_vel_y *= -1.0f;
             }
 
             // Horizontal Bounds / Reset / Score
-            if (ball_x >= 960.0f - 10.0f) {
+            if (ball_x >= resolution_x - 10.0f) {
                 point_scored(p1_score);
                 check_winner(p1_score, p2_score);
-                ball_x = 475.0f;
-                ball_y = 265.0f;
+                ball_x = center_x;
+                ball_y = center_y;
             }
+            // Where 0.0f is the left boundary
             if (ball_x <= 0.0f) {
                 point_scored(p2_score);
                 check_winner(p1_score, p2_score);
-                ball_x = 475.0f;
-                ball_y = 265.0f;
+                ball_x = center_x;
+                ball_y = center_y;
             }
 
             // Player 1 Collision
@@ -294,7 +298,7 @@ int main()
 
             // Player 1
             glm::mat4 player1_model = glm::mat4(1.0f);
-            player1_model = glm::translate(player1_model, glm::vec3(0.0f, p1_y, 0.0f));
+            player1_model = glm::translate(player1_model, glm::vec3(p1_x, p1_y, 0.0f));
             glm::mat4 mvp1 = proj * view * player1_model;
             paddle_texture.Bind();
             shader.Bind();
@@ -479,11 +483,17 @@ void point_scored(int& player) {
     player += 1;
 }
 
-void check_winner(int player1, int player2) {
+void check_winner(int& player1, int& player2) {
     if (player1 >= 3) {
         std::cout << "Player 1 wins";
+        player1 = 0;
+        player2 = 0;
+        // reset scores or end game
     }
     if (player2 >= 3) {
         std::cout << "Player 2 wins";
+        player1 = 0;
+        player2 = 0;
+        // reset scores or end game
     }
 }
