@@ -6,6 +6,9 @@
 #include <string>
 #include <sstream>
 #include <array>
+#include <algorithm>
+#include <random>
+
 
 #include "Renderer.h"
 
@@ -32,7 +35,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh);
 void point_scored(int& player);
 void check_winner(int& player1, int& player2);
+void ball_reset();
+void paddle_reset();
 
+constexpr float PI = 3.14159265358979f;
 
 //constexpr float resolution_x{ 960.0f };
 //constexpr float resolution_y{ 540.0f };
@@ -43,6 +49,7 @@ constexpr float resolution_y{ 1080.0f };
 constexpr float center_x{ resolution_x / 2 };
 constexpr float center_y{ resolution_y / 2 };
 constexpr float scoreboard_offset_x{ 60.0f };
+constexpr float paddle_boundary_offset_y{ 18.0f }; //  Half height of paddle
 //constexpr glm::vec3 ball_spawn_location = glm::vec3( center_x, center_y, 0.0f);
 
 
@@ -52,25 +59,29 @@ bool player_one_down{ false };
 bool player_two_up{ false };
 bool player_two_down{ false };
 
-float p1_x{ 0.0f };
-float p1_y{ 200.0f };
 
-// 20.0f is the width of the paddle texture. hardcoded because I dont want to move this out of globals at the moment and i dont want to solve it with pointers.
-float p2_x{ resolution_x - 20.0f};
-float p2_y{ 200.0f };
 
 double global_posX{};
 double global_posY{};
 
-float paddle_w = 20.0f;
-float paddle_h = 38.0f;
-float paddle_speed{ 5.0f };
+constexpr float paddle_w = 20.0f;
+constexpr float paddle_h = 100.0f;
+float p1_x{ 0.0f };
+float p1_y{ center_y - (paddle_h / 2.0f) };
+float p2_x{ resolution_x - paddle_w };
+float p2_y{ center_y - (paddle_h / 2.0f) };
+constexpr float paddle_speed{ resolution_y * 0.0025f };
+constexpr float paddle_offset_to_center_y{ paddle_h / 2.0f };
 
-float ball_x = center_x;
-float ball_y = center_y;
-float ball_size = 10.0f;
-float ball_vel_x = 2.0f;
-float ball_vel_y = 2.0f;
+glm::vec2 ball_pos{ center_x, center_y }; // add offsets
+glm::vec2 ball_vel{ 0.0f, 0.0f };
+float ball_size = 20.0f;
+float ball_speed{ resolution_x * 0.002 };
+
+// Random starting angle for ball
+std::mt19937 rng(std::random_device{}());
+std::uniform_int_distribution<int> angle_dist(-30, 30);
+std::uniform_int_distribution<int> dir_dist(0, 1);
 
 int p1_score{ 0 };
 int p2_score{ 0 };
@@ -154,16 +165,16 @@ int main()
             0.0f,       1080.0f,    0.0f,   1.0f,
         };
         float p1_positions[] = {
-            0.0f,   0.0f, 0.0f, 0.0f, // 0
-            20.0f,  0.0f, 1.0f, 0.0f, // 1
-            20.0f, 38.0f, 1.0f, 1.0f, // 2
-            0.0f,  38.0f, 0.0f, 1.0f, // 3
+            0.0f,       0.0f, 0.0f, 0.0f, // 0
+            paddle_w,   0.0f, 1.0f, 0.0f, // 1
+            paddle_w,   paddle_h, 1.0f, 1.0f, // 2
+            0.0f,       paddle_h, 0.0f, 1.0f, // 3
         };
         float ball_positions[] = {
-            0.0f,   0.0f,   0.0f, 0.0f,
-            10.0f,  0.0f,   1.0f, 0.0f,
-            10.0f,  10.0f,  1.0f, 1.0f,
-            0.0f,   10.0f,  0.0f, 1.0f,
+            0.0f,       0.0f,   0.0f, 0.0f,
+            ball_size,  0.0f,   1.0f, 0.0f,
+            ball_size,  ball_size,  1.0f, 1.0f,
+            0.0f,       ball_size,  0.0f, 1.0f,
         };
 
         float scoreboard_positions[] = {
@@ -266,7 +277,7 @@ int main()
 
 
         
-
+        ball_reset();
 
         // render loop
         // -----------
@@ -274,36 +285,60 @@ int main()
         {
             // input
             // -----
-            ball_x += ball_vel_x;
-            ball_y += ball_vel_y;
 
-            // Ceiling Bounds
-            if (ball_y <= 0.0f || ball_y >= resolution_y - 10.0f) {
-                ball_vel_y *= -1.0f;
+
+            ball_pos += ball_vel;
+            float ball_x = ball_pos.x;
+            float ball_y = ball_pos.y;
+
+            // Ceiling Bounds - Ball
+            if (ball_pos.y <= 0.0f || ball_pos.y >= resolution_y - ball_size) {
+                ball_vel.y *= -1.0f;
             }
 
-            // Horizontal Bounds / Reset / Score
-            if (ball_x >= resolution_x - 10.0f) {
+            // Horizontal Bounds / Reset / Score - Ball
+            if (ball_pos.x >= resolution_x - ball_size) {
                 point_scored(p1_score);
                 check_winner(p1_score, p2_score);
-                ball_x = center_x;
-                ball_y = center_y;
+                paddle_reset();
+                ball_reset();
             }
             // Where 0.0f is the left boundary
-            if (ball_x <= 0.0f) {
+            if (ball_pos.x <= 0.0f) {
                 point_scored(p2_score);
                 check_winner(p1_score, p2_score);
-                ball_x = center_x;
-                ball_y = center_y;
+                paddle_reset();
+                ball_reset();
             }
 
             // Player 1 Collision
             if (AABB(ball_x, ball_y, ball_size, ball_size, p1_x, p1_y, paddle_w, paddle_h)) {
-                ball_vel_x *= -1.0f;
+                ball_pos.x = p1_x + paddle_w;
+                float paddle_center{ p1_y + paddle_offset_to_center_y };
+                float ball_center{ ball_y + (ball_size / 2.0f) };
+                float hit_pos = (ball_center - paddle_center) / (paddle_h / 2.0f);
+                
+                float max_bounce_angle = 65.0f * (PI / 180.0f);
+
+                glm::vec2 dir = glm::vec2(
+                    abs(cos(max_bounce_angle * hit_pos)),
+                    sin(max_bounce_angle * hit_pos)
+                );
+                ball_vel = glm::normalize(dir) * ball_speed;
             }
             // Player 2 Collision
             if (AABB(ball_x, ball_y, ball_size, ball_size, p2_x, p2_y, paddle_w, paddle_h)) {
-                ball_vel_x *= -1.0f;
+                ball_pos.x = p2_x - ball_size;
+                float paddle_center{ p2_y + paddle_offset_to_center_y };
+                float ball_center{ ball_y + (ball_size / 2.0f) };
+                float hit_pos = (ball_center - paddle_center) / (paddle_h / 2.0f);
+                float max_bounce_angle = 65.0f * (PI / 180.0f);
+
+                glm::vec2 dir = glm::vec2(
+                    -abs(cos(max_bounce_angle * hit_pos)),
+                    sin(max_bounce_angle * hit_pos)
+                );
+                ball_vel = glm::normalize(dir) * ball_speed;
             }
 
 
@@ -311,7 +346,6 @@ int main()
             // render
             // ------
             renderer.Clear();
-            shader.Bind();
 
             /*ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -354,6 +388,7 @@ int main()
             glm::mat4 score_player1_mvp = proj * view * score_player1_model;
             score_textures[p1_score]->Bind();
             color_shader.Bind();
+            color_shader.SetUniform1i("u_UseTexture", 1);
             color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
             color_shader.SetUniform1i("u_Texture", 0);
             color_shader.SetUniformMat4f("u_MVP", score_player1_mvp);
@@ -365,6 +400,7 @@ int main()
             glm::mat4 score_player2_mvp = proj * view * score_player2_model;
             score_textures[p2_score]->Bind();
             color_shader.Bind();
+            color_shader.SetUniform1i("u_UseTexture", 1);
             color_shader.SetUniform4f("u_Color", 1.0f, 1.0f, 1.0f, 1.0f);
             color_shader.SetUniform1i("u_Texture", 0);
             color_shader.SetUniformMat4f("u_MVP", score_player2_mvp);
@@ -374,12 +410,12 @@ int main()
             glm::mat4 ball_model = glm::mat4(1.0f);
             ball_model = glm::translate(ball_model, glm::vec3(ball_x, ball_y, 0.0f));
             glm::mat4 ballmvp = proj * view * ball_model;
-            ball_texture.Bind();
-            shader.Bind();
-            shader.SetUniform1i("u_Texture", 0);
-            shader.SetUniformMat4f("u_MVP", ballmvp);
-            renderer.Draw(ball_va, ib, shader);
-
+            color_shader.Bind();
+            color_shader.SetUniform1i("u_UseTexture", 0);
+            color_shader.SetUniform4f("u_Color", 1.0f, 0.0f, 0.0f, 1.0f);
+            color_shader.SetUniformMat4f("u_MVP", ballmvp);
+            renderer.Draw(ball_va, ib, color_shader);
+            
 
 
             //{
@@ -393,7 +429,6 @@ int main()
             //ImGui::Render();
             //ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
             glfwSwapBuffers(window);
@@ -404,25 +439,28 @@ int main()
                 ;
             }
             else {
-                if (player_one_up) {
+                if (player_one_up && p1_y + paddle_h < resolution_y) {
                     p1_y += paddle_speed;
                 }
-                if (player_one_down) {
+                
+                if (player_one_down && p1_y > 0.0f) {
                     p1_y -= paddle_speed;
                 }
             }
+            p1_y = std::clamp(p1_y, 0.0f, resolution_y - paddle_h);
             if (player_two_up && player_two_down) {
                 ;
             }
             else {
-                if (player_two_up) {
+                if (player_two_up && p2_y + paddle_h < resolution_y) {
                     p2_y += paddle_speed;
                 }
-                if (player_two_down) {
+
+                if (player_two_down && p2_y > 0.0f) {
                     p2_y -= paddle_speed;
                 }
             }
-
+            p2_y = std::clamp(p2_y, 0.0f, resolution_y - paddle_h);
 
             glfwPollEvents();
         }
@@ -472,6 +510,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    // Menu
+    // Exit/Close
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, true);
+    }
+
     // Player 1
     if (key == 87 && action == GLFW_PRESS) {
         player_one_up = true;
@@ -501,6 +545,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE) {
         player_two_down = false;
     }
+
+
+
 }
 
 bool AABB(float ax, float ay, float aw, float ah, float bx, float by, float bw, float bh) {
@@ -527,4 +574,19 @@ void check_winner(int& player1, int& player2) {
         player2 = 0;
         // reset scores or end game
     }
+}
+
+void ball_reset() {
+    ball_pos = glm::vec2(center_x - (ball_size / 2.0f), center_y - (ball_size / 2.0f));
+    float angle = angle_dist(rng) * (PI / 180.0f);
+    glm::vec2 dir = glm::vec2(
+        cos(angle) * (dir_dist(rng) ? 1 : -1),
+        sin(angle)
+    );
+    ball_vel = glm::normalize(dir) * ball_speed;
+}
+
+void paddle_reset() {
+    p1_y = center_y - (paddle_h/2.0f);
+    p2_y = center_y - (paddle_h/2.0f);
 }
