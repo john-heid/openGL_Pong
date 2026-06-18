@@ -76,7 +76,9 @@ constexpr float paddle_offset_to_center_y{ paddle_h / 2.0f };
 glm::vec2 ball_pos{ center_x, center_y }; // add offsets
 glm::vec2 ball_vel{ 0.0f, 0.0f };
 float ball_size = 20.0f;
-float ball_speed{ resolution_x * 0.002 };
+float ball_speed_initial{ resolution_x * 0.002 };
+float ball_speed_increment{ resolution_x * 0.0003 };
+float ball_speed{ ball_speed_initial };
 
 // Random starting angle for ball
 std::mt19937 rng(std::random_device{}());
@@ -242,7 +244,7 @@ int main()
         color_shader.SetUniformMat4f("u_MVP", mvp);
         
         Texture background_texture("res/textures/background.png");
-        Texture paddle_texture("res/textures/redcar_icon.png");
+        Texture paddle_texture("res/textures/pong_paddle.png");
         Texture ball_texture("res/textures/pong_ball.png");
         Texture score_zero("res/textures/score_zero.png");
         Texture score_one("res/textures/score_one.png");
@@ -324,6 +326,7 @@ int main()
                     abs(cos(max_bounce_angle * hit_pos)),
                     sin(max_bounce_angle * hit_pos)
                 );
+                ball_speed += ball_speed_increment;
                 ball_vel = glm::normalize(dir) * ball_speed;
             }
             // Player 2 Collision
@@ -338,6 +341,7 @@ int main()
                     -abs(cos(max_bounce_angle * hit_pos)),
                     sin(max_bounce_angle * hit_pos)
                 );
+                ball_speed += ball_speed_increment;
                 ball_vel = glm::normalize(dir) * ball_speed;
             }
 
@@ -583,6 +587,7 @@ void ball_reset() {
         cos(angle) * (dir_dist(rng) ? 1 : -1),
         sin(angle)
     );
+    ball_speed = ball_speed_initial;
     ball_vel = glm::normalize(dir) * ball_speed;
 }
 
