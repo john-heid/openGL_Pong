@@ -40,6 +40,7 @@ void paddle_reset();
 
 constexpr float PI = 3.14159265358979f;
 
+
 //constexpr float resolution_x{ 960.0f };
 //constexpr float resolution_y{ 540.0f };
 //constexpr float resolution_x{ 1280.0f };
