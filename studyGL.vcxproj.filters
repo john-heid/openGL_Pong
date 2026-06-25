@@ -1442,5 +1442,11 @@
     <Image Include="res\textures\pong_paddle.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\textures\pong_paused.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\textures\pong_start.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

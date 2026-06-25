@@ -611,6 +611,8 @@
     <Image Include="res\textures\background.png" />
     <Image Include="res\textures\pong_ball.png" />
     <Image Include="res\textures\pong_paddle.png" />
+    <Image Include="res\textures\pong_paused.png" />
+    <Image Include="res\textures\pong_start.png" />
     <Image Include="res\textures\redcar_icon.png" />
     <Image Include="res\textures\score_one.png" />
     <Image Include="res\textures\score_three.png" />
